@@ -1,6 +1,5 @@
 #include "RFTransmitter.h"
 #include "../config.h"
-#include "../state/WindowSim.h"
 #include <RCSwitch.h>
 #include <deque>
 #include <mutex>
@@ -55,9 +54,6 @@ bool RFTransmitter::loop(String& sentName) {
   if (job.raw) sendRaw(job);
   else sendDecoded(job);
   txCnt++;
-  // Replaying the open/close codes implies the window state changed.
-  if (job.name.equalsIgnoreCase("open")) WindowSim::set(WindowSim::State::Open, "rf replay");
-  else if (job.name.equalsIgnoreCase("close")) WindowSim::set(WindowSim::State::Closed, "rf replay");
   sentName = job.name.length() ? job.name : (job.raw ? "raw signal" : "code " + String(job.code));
   return true;
 }

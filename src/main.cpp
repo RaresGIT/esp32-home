@@ -10,7 +10,7 @@
 #include "rf/RFTransmitter.h"
 #include "web/Portal.h"
 #include "mqtt/HaMqtt.h"
-#include "state/WindowSim.h"
+#include "state/WindowPosition.h"
 #include "homekit/HomeKit.h"
 
 static DNSServer dns;
@@ -151,7 +151,7 @@ void setup() {
   Codes::begin();
   RFTransmitter::begin();
   RFReceiver::begin();
-  WindowSim::begin();
+  WindowPosition::begin();
 
   devId = deviceId();
   String ssid = Storage::wifiSsid();
@@ -173,6 +173,7 @@ void loop() {
   } else {
     HomeKit::poll();
   }
+  WindowPosition::tick();
   RFReceiver::loop();
 
   String sent;
