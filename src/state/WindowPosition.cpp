@@ -71,7 +71,11 @@ void sendDir(bool open) {
 }
 
 void recompute() {
-  s_pos = WindowModel::estimatePct(s_startPct, millis() - s_startMs, s_motion, cfgOpenMs, cfgCloseMs);
+  // Only dead-reckon while moving. When idle, s_pos already holds the true
+  // resting position (a snapped target or persisted value); estimatePct's idle
+  // branch would otherwise overwrite it with the stale start-of-last-move value.
+  if (s_motion != Motion::Idle)
+    s_pos = WindowModel::estimatePct(s_startPct, millis() - s_startMs, s_motion, cfgOpenMs, cfgCloseMs);
 }
 
 void doStop() {
