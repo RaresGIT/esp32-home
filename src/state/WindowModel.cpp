@@ -16,4 +16,37 @@ float estimatePct(float startPct, uint32_t elapsedMs, Motion motion,
   return clampPct(p);
 }
 
+Step decideStep(float pos, float target, Motion motion,
+                float leadPct, float deadband, bool settleOk) {
+  const bool fullOpen  = target >= 100.0f - 0.001f;
+  const bool fullClose = target <= 0.0f + 0.001f;
+
+  switch (motion) {
+    case Motion::Opening:
+      if (fullOpen) {
+        if (pos >= 100.0f - 0.001f) return {Command::None, Motion::Idle, true};
+        return {Command::None, Motion::Opening, false};
+      }
+      // intermediate target, or a retarget now below us -> stop early by leadPct
+      if (pos >= target - leadPct) return {Command::SendClose, Motion::Idle, false};
+      return {Command::None, Motion::Opening, false};
+
+    case Motion::Closing:
+      if (fullClose) {
+        if (pos <= 0.0f + 0.001f) return {Command::None, Motion::Idle, true};
+        return {Command::None, Motion::Closing, false};
+      }
+      if (pos <= target + leadPct) return {Command::SendOpen, Motion::Idle, false};
+      return {Command::None, Motion::Closing, false};
+
+    case Motion::Idle:
+    default:
+      if (pos > target - deadband && pos < target + deadband)
+        return {Command::None, Motion::Idle, true};
+      if (!settleOk) return {Command::None, Motion::Idle, false};
+      if (target > pos) return {Command::SendOpen, Motion::Opening, false};
+      return {Command::SendClose, Motion::Closing, false};
+  }
+}
+
 }  // namespace WindowModel
