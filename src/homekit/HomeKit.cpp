@@ -63,6 +63,7 @@ void HomeKit::begin(const String& deviceId, const String& ssid, const String& pa
   homeSpan.setWifiCredentials(ssid.c_str(), pass.c_str());
   homeSpan.setWifiCallback([]() {
     WiFi.setSleep(false);
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);  // C3 Mini antenna quirk, see startAp()
     Serial.printf("HomeKit: WiFi up, IP %s\n", WiFi.localIP().toString().c_str());
   });
   homeSpan.begin(Category::Windows, "Window", "windowctl");

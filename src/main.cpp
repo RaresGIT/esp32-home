@@ -37,6 +37,9 @@ static void startAp() {
   });
   WiFi.mode(WIFI_AP_STA);  // AP_STA so the portal can still scan networks
   WiFi.softAP(host.c_str(), AP_PASSWORD);
+  // C3 Mini antenna quirk: full TX power distorts when the antenna is
+  // detuned by nearby metal/wires; 8.5dBm is the known-good setting.
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   dns.start(53, "*", WiFi.softAPIP());
   Serial.printf("Setup AP '%s' (pass '%s'), portal at http://%s/\n", host.c_str(), AP_PASSWORD,
                 WiFi.softAPIP().toString().c_str());
@@ -154,6 +157,7 @@ void setup() {
   String ssid = Storage::wifiSsid();
   if (ssid.length()) {
     WiFi.mode(WIFI_STA);  // brings up the TCP/IP stack before the web server starts
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);  // C3 Mini antenna quirk, see startAp()
     HomeKit::begin(devId, ssid, Storage::wifiPass());
     HaMqtt::begin(devId);
   } else {
