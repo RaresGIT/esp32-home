@@ -93,6 +93,13 @@ void HomeKit::notifyState(bool open) {
   if (win->target->getVal() != v) win->target->setVal(v);
 }
 
+// If the accessory is removed from the Home app while the device is offline,
+// the unpair never reaches it and stored controller data blocks re-pairing
+// (Home app hangs on "Connecting"). 'U' deletes all controller data.
+void HomeKit::resetPairing() {
+  if (isActive) homeSpan.processSerialCommand("U");
+}
+
 const char* HomeKit::pairingCode() { return PAIRING_CODE; }
 
 // HAP setup payload: 45-bit value, base36-encoded to 9 chars, plus setup ID.

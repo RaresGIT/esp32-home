@@ -203,6 +203,12 @@ void registerApi() {
   mqttH->setMethod(HTTP_POST);
   server.addHandler(mqttH);
 
+  server.on("/api/homekit-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
+    HomeKit::resetPairing();
+    req->send(200, "application/json", "{\"ok\":true,\"rebooting\":true}");
+    Portal::requestReboot();
+  });
+
   server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
     Storage::factoryReset();
     LittleFS.remove("/codes.json");

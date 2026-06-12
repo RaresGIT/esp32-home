@@ -10,6 +10,7 @@ void begin(const String& deviceId, const String& ssid, const String& pass);
 void poll();
 bool active();
 void notifyState(bool open);  // reflect state changes from other sources
+void resetPairing();          // erase controller pairing data (stuck-pairing failsafe)
 
 const char* pairingCode();  // 8 digits
 String setupUri();          // X-HM://... payload encoded in the pairing QR

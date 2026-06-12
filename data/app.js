@@ -267,6 +267,11 @@ $('#factoryBtn').onclick = () => {
     post('/api/factory-reset', {}).then(() => toast('Factory reset — rebooting into setup AP', 9000));
 };
 
+$('#hkResetBtn').onclick = () => {
+  if (confirm('Erase HomeKit pairing data? You will need to re-add the accessory in the Home app.'))
+    post('/api/homekit-reset', {}).then(() => toast('Pairing erased — rebooting, re-add from the Home app', 9000));
+};
+
 // ---- homekit pairing
 async function loadHomekit() {
   const h = await api('/api/homekit').catch(() => null);
