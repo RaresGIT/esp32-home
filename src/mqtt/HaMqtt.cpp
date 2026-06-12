@@ -9,7 +9,8 @@
 #include "../storage/Codes.h"
 #include "../rf/RFReceiver.h"
 #include "../rf/RFTransmitter.h"
-#include "../state/WindowSim.h"
+#include "../state/WindowPosition.h"
+#include "../state/WindowModel.h"
 
 namespace {
 WiFiClient net;
@@ -81,14 +82,14 @@ void handleMessage(char* topic, byte* payload, unsigned int len) {
   for (unsigned int i = 0; i < len; i++) p += (char)payload[i];
 
   if (t == baseT + "/cmd/cover") {
-    const char* name = p == "OPEN" ? "open" : p == "CLOSE" ? "close" : p == "STOP" ? "stop" : nullptr;
-    if (!name) return;
-    // Track state even when no RF code is saved yet, so the command chain
-    // (and the LED) can be exercised before the device is installed.
-    if (p == "OPEN") WindowSim::set(WindowSim::State::Open, "mqtt cover");
-    else if (p == "CLOSE") WindowSim::set(WindowSim::State::Closed, "mqtt cover");
-    RfCode* c = Codes::findByName(name);
-    if (c) RFTransmitter::requestSend(*c);
+    if (p == "OPEN") WindowPosition::openFull();
+    else if (p == "CLOSE") WindowPosition::closeFull();
+    else if (p == "STOP") WindowPosition::stop();
+  } else if (t == baseT + "/cmd/position") {
+    long v = p.toInt();
+    if (v < 0) v = 0;
+    if (v > 100) v = 100;
+    WindowPosition::goTo((uint8_t)v);
   } else if (t == baseT + "/cmd/replay") {
     RfCode* c = nullptr;
     long id = p.toInt();
@@ -159,8 +160,11 @@ void HaMqtt::publishDiscovery() {
     doc["uniq_id"] = "windowctl_" + devId + "_window";
     doc["cmd_t"] = baseT + "/cmd/cover";
     doc["stat_t"] = baseT + "/cover/state";
+    doc["pos_t"] = baseT + "/cover/position";
+    doc["set_pos_t"] = baseT + "/cmd/position";
+    doc["pos_open"] = 100;
+    doc["pos_clsd"] = 0;
     doc["dev_cla"] = "window";
-    if (!Codes::findByName("stop")) doc["pl_stop"] = nullptr;  // hide stop arrow
     addDevice(doc);
     pubJson("homeassistant/cover/windowctl_" + devId + "/window/config", doc);
     coverPublished = true;
@@ -188,8 +192,13 @@ void HaMqtt::publishDiscovery() {
 
 void HaMqtt::publishCoverState() {
   if (!enabled || !mq.connected()) return;
-  if (WindowSim::get() == WindowSim::State::Unknown) return;
-  mq.publish((baseT + "/cover/state").c_str(), WindowSim::name(), true);
+  uint8_t pos = WindowPosition::position();
+  mq.publish((baseT + "/cover/position").c_str(), String(pos).c_str(), true);
+  WindowModel::Motion m = WindowPosition::motion();
+  const char* st = m == WindowModel::Motion::Opening ? "opening"
+                 : m == WindowModel::Motion::Closing ? "closing"
+                 : pos <= 1 ? "closed" : "open";
+  mq.publish((baseT + "/cover/state").c_str(), st, true);
 }
 
 void HaMqtt::publishRx(const String& json) {
