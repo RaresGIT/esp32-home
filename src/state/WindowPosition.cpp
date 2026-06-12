@@ -5,6 +5,7 @@
 #include "../rf/RFTransmitter.h"
 #include "../mqtt/HaMqtt.h"
 #include "../web/Portal.h"
+#include "../homekit/HomeKit.h"
 #include <ArduinoJson.h>
 
 using WindowModel::Motion;
@@ -47,7 +48,7 @@ void notifySinks(bool force) {
   uint32_t now = millis();
   if (!force && now - s_lastNotifyMs < NOTIFY_MS) return;
   s_lastNotifyMs = now;
-  // HOMEKIT_NOTIFY_HOOK (added in Task 6)
+  HomeKit::notifyPosition(roundPct(s_pos), s_motion);
   HaMqtt::publishCoverState();
   JsonDocument doc;
   doc["type"] = "window";
