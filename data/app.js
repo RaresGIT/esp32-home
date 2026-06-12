@@ -26,6 +26,7 @@ document.querySelectorAll('nav .tab').forEach(b =>
     document.querySelectorAll('nav .tab').forEach(x => x.classList.toggle('active', x === b));
     document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + b.dataset.tab));
     if (b.dataset.tab === 'settings') scanWifi();  // results ready by the time you look
+    if (b.dataset.tab === 'window') loadWindow();
   })
 );
 
@@ -39,7 +40,11 @@ function wsConnect() {
     setTimeout(wsConnect, 2000);
   };
   ws.onmessage = e => {
-    try { addEvent(JSON.parse(e.data)); } catch {}
+    try {
+      const m = JSON.parse(e.data);
+      if (m.type === 'window') updateWindow(m);
+      else addEvent(m);
+    } catch {}
   };
 }
 
@@ -120,6 +125,42 @@ function setMode(m, announce = true) {
 $('#modeDecoded').onclick = () => setMode('decoded');
 $('#modeRaw').onclick = () => setMode('raw');
 $('#clearEvents').onclick = () => $('#events').replaceChildren();
+
+// ---- window
+function describeWindow(pos, motion) {
+  if (motion === 'opening') return `Opening… ${pos}%`;
+  if (motion === 'closing') return `Closing… ${pos}%`;
+  if (pos >= 99) return 'Open';
+  if (pos <= 1) return 'Closed';
+  return `Partly open ${pos}%`;
+}
+function updateWindow(m) {
+  $('#posFill').style.width = m.pos + '%';
+  $('#winState').textContent = describeWindow(m.pos, m.motion);
+  if (document.activeElement !== $('#winSlider')) $('#winSlider').value = m.pos;
+}
+async function loadWindow() {
+  const w = await api('/api/window').catch(() => null);
+  if (!w) return;
+  updateWindow(w);
+  $('#calForm [name=openS]').value = (w.openMs / 1000).toFixed(1);
+  $('#calForm [name=closeS]').value = (w.closeMs / 1000).toFixed(1);
+  $('#calForm [name=stopLeadMs]').value = w.stopLeadMs;
+}
+$('#winOpen').onclick = () => post('/api/window', { action: 'open' }).catch(e => toast('Error: ' + e.message));
+$('#winClose').onclick = () => post('/api/window', { action: 'close' }).catch(e => toast('Error: ' + e.message));
+$('#winStop').onclick = () => post('/api/window', { action: 'stop' }).catch(e => toast('Error: ' + e.message));
+$('#winSlider').addEventListener('change', e =>
+  post('/api/window', { action: 'goto', value: +e.target.value }).catch(err => toast('Error: ' + err.message)));
+$('#calForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  post('/api/window/calibrate', {
+    openMs: Math.round(+fd.get('openS') * 1000),
+    closeMs: Math.round(+fd.get('closeS') * 1000),
+    stopLeadMs: +fd.get('stopLeadMs'),
+  }).then(() => toast('Calibration saved')).catch(err => toast('Error: ' + err.message));
+});
 
 // ---- codes
 async function loadCodes() {
@@ -316,7 +357,7 @@ async function refreshStats() {
     ['Signals sent', s.tx],
     ['Signals received', s.rxc],
     ['MQTT', s.mqtt ? 'connected' : 'not connected'],
-    ['Window (simulated)', s.window || 'unknown'],
+    ['Window', (s.pos != null ? s.pos + '% · ' : '') + (s.window || 'idle')],
     ['Receiver mode', s.mode],
     ['Saved codes', s.codes],
   ];
@@ -335,4 +376,5 @@ loadCodes();
 loadSettings();
 loadHomekit();
 refreshStats();
+loadWindow();
 setInterval(refreshStats, 5000);

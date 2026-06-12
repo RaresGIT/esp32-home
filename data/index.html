@@ -16,14 +16,38 @@
 </header>
 
 <nav>
-  <button class="tab active" data-tab="sniffer">Sniffer</button>
+  <button class="tab active" data-tab="window">Window</button>
+  <button class="tab" data-tab="sniffer">Sniffer</button>
   <button class="tab" data-tab="codes">Codes</button>
   <button class="tab" data-tab="settings">Settings</button>
   <button class="tab" data-tab="stats">Stats</button>
 </nav>
 
 <main>
-<section id="tab-sniffer" class="tabpane active">
+<section id="tab-window" class="tabpane active">
+  <div class="card">
+    <h2>Window</h2>
+    <div class="posbar"><div id="posFill" class="posfill"></div></div>
+    <p id="winState" class="muted">—</p>
+    <label>Target position <input id="winSlider" type="range" min="0" max="100" value="0"></label>
+    <div class="row">
+      <button id="winOpen">Open</button>
+      <button id="winClose">Close</button>
+      <button id="winStop" class="ghost">Stop</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Calibration</h2>
+    <p class="muted">Time for a full travel in each direction. Used to estimate position.</p>
+    <form id="calForm">
+      <label>Open time (s) <input name="openS" type="number" step="0.1" min="1" value="23.5"></label>
+      <label>Close time (s) <input name="closeS" type="number" step="0.1" min="1" value="27"></label>
+      <label>Stop lead (ms) <input name="stopLeadMs" type="number" min="0" value="800"></label>
+      <button>Save calibration</button>
+    </form>
+  </div>
+</section>
+<section id="tab-sniffer" class="tabpane">
   <div class="row">
     <div class="seg">
       <button id="modeDecoded" class="seg-btn active">Decoded</button>

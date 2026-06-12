@@ -3,7 +3,7 @@
 #include "../config.h"
 #include "../storage/Codes.h"
 #include "../rf/RFTransmitter.h"
-#include "../state/WindowSim.h"
+#include "../state/WindowPosition.h"
 
 namespace {
 constexpr char PAIRING_CODE[] = "47102386";
@@ -12,43 +12,28 @@ constexpr uint8_t CATEGORY_WINDOW = 13;  // HAP accessory category
 constexpr uint8_t FLAG_IP = 2;           // HAP pairing flag: IP transport
 
 bool isActive = false;
-bool inUpdate = false;
 
-// Binary window: the slider snaps to 0/100 (setRange step 100). A command
-// replays the matching RF code and flips the simulated state/LED.
+// Positionable window: the slider reports any 0–100 value. Commands are
+// forwarded to WindowPosition::goTo; live position is pushed back via
+// HomeKit::notifyPosition called from WindowPosition::notifySinks.
 struct WindowService : Service::Window {
   SpanCharacteristic* cur;
   SpanCharacteristic* target;
   SpanCharacteristic* posState;
-  int pendingNorm = -1;
 
   WindowService() : Service::Window() {
     cur = new Characteristic::CurrentPosition(0);
     target = new Characteristic::TargetPosition(0);
-    target->setRange(0, 100, 100);
+    target->setRange(0, 100, 1);
     posState = new Characteristic::PositionState(2);  // stopped
   }
 
   boolean update() override {
-    inUpdate = true;
-    int t = target->getNewVal();
-    bool open = t >= 50;
-    RfCode* c = Codes::findByName(open ? "open" : "close");
-    if (c) RFTransmitter::requestSend(*c);
-    WindowSim::set(open ? WindowSim::State::Open : WindowSim::State::Closed, "homekit");
-    int norm = open ? 100 : 0;
-    cur->setVal(norm);
-    if (t != norm) pendingNorm = norm;  // can't touch target inside its own update
-    inUpdate = false;
+    WindowPosition::goTo((uint8_t)target->getNewVal());
     return true;
   }
 
-  void loop() override {
-    if (pendingNorm >= 0) {
-      target->setVal(pendingNorm);
-      pendingNorm = -1;
-    }
-  }
+  void loop() override {}  // position is driven by WindowPosition via notifyPosition()
 };
 
 WindowService* win = nullptr;
@@ -87,11 +72,15 @@ void HomeKit::poll() {
 
 bool HomeKit::active() { return isActive; }
 
-void HomeKit::notifyState(bool open) {
-  if (!isActive || !win || inUpdate) return;
-  int v = open ? 100 : 0;
-  if (win->cur->getVal() != v) win->cur->setVal(v);
-  if (win->target->getVal() != v) win->target->setVal(v);
+void HomeKit::notifyPosition(uint8_t pct, WindowModel::Motion motion) {
+  if (!isActive || !win) return;
+  if (win->cur->getVal<int>() != pct) win->cur->setVal(pct);
+  uint8_t ps = motion == WindowModel::Motion::Opening ? 1   // increasing
+             : motion == WindowModel::Motion::Closing ? 0   // decreasing
+                                                      : 2;  // stopped
+  if (win->posState->getVal<int>() != ps) win->posState->setVal(ps);
+  if (motion == WindowModel::Motion::Idle && win->target->getVal<int>() != pct)
+    win->target->setVal(pct);
 }
 
 // If the accessory is removed from the Home app while the device is offline,

@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "../state/WindowModel.h"
 
 // Native HomeKit accessory (HomeSpan): the device pairs directly with the
 // Apple Home app — no Home Assistant or broker required. Exposes a Window
@@ -9,7 +10,7 @@ namespace HomeKit {
 void begin(const String& deviceId, const String& ssid, const String& pass);
 void poll();
 bool active();
-void notifyState(bool open);  // reflect state changes from other sources
+void notifyPosition(uint8_t pct, WindowModel::Motion motion);  // reflect live position
 void resetPairing();          // erase controller pairing data (stuck-pairing failsafe)
 
 const char* pairingCode();  // 8 digits

@@ -11,7 +11,7 @@
 #include "../rf/RFReceiver.h"
 #include "../rf/RFTransmitter.h"
 #include "../mqtt/HaMqtt.h"
-#include "../state/WindowSim.h"
+#include "../state/WindowPosition.h"
 #include "../homekit/HomeKit.h"
 
 namespace {
@@ -74,7 +74,8 @@ void registerApi() {
     doc["mqtt"] = HaMqtt::connected();
     doc["mode"] = RFReceiver::mode() == RFReceiver::Mode::Raw ? "raw" : "decoded";
     doc["codes"] = Codes::all().size();
-    doc["window"] = WindowSim::name();
+    doc["window"] = WindowPosition::motionName();
+    doc["pos"] = WindowPosition::position();
     sendJson(req, doc);
   });
 
@@ -94,6 +95,43 @@ void registerApi() {
     doc["uri"] = HomeKit::setupUri();
     sendJson(req, doc);
   });
+
+  server.on("/api/window", HTTP_GET, [](AsyncWebServerRequest* req) {
+    JsonDocument doc;
+    doc["pos"] = WindowPosition::position();
+    doc["motion"] = WindowPosition::motionName();
+    doc["target"] = WindowPosition::target();
+    doc["openMs"] = WindowPosition::openMs();
+    doc["closeMs"] = WindowPosition::closeMs();
+    doc["stopLeadMs"] = WindowPosition::stopLeadMs();
+    sendJson(req, doc);
+  });
+
+  auto* windowH = new AsyncCallbackJsonWebHandler("/api/window", [](AsyncWebServerRequest* req, JsonVariant& json) {
+    JsonObject o = json.as<JsonObject>();
+    String a = (const char*)(o["action"] | "");
+    if (a == "open") WindowPosition::openFull();
+    else if (a == "close") WindowPosition::closeFull();
+    else if (a == "stop") WindowPosition::stop();
+    else if (a == "goto") {
+      int v = o["value"] | -1;
+      if (v < 0 || v > 100) return sendErr(req, "value 0-100 required");
+      WindowPosition::goTo((uint8_t)v);
+    } else return sendErr(req, "unknown action");
+    sendOk(req);
+  });
+  windowH->setMethod(HTTP_POST);
+  server.addHandler(windowH);
+
+  auto* calibH = new AsyncCallbackJsonWebHandler("/api/window/calibrate", [](AsyncWebServerRequest* req, JsonVariant& json) {
+    JsonObject o = json.as<JsonObject>();
+    uint32_t om = o["openMs"] | 0u, cm = o["closeMs"] | 0u, sl = o["stopLeadMs"] | 0u;
+    if (om < 1000 || cm < 1000) return sendErr(req, "openMs/closeMs too small");
+    WindowPosition::setCalibration(om, cm, sl);
+    sendOk(req);
+  });
+  calibH->setMethod(HTTP_POST);
+  server.addHandler(calibH);
 
   server.on("/api/codes", HTTP_GET, [](AsyncWebServerRequest* req) {
     JsonDocument doc;
@@ -132,12 +170,16 @@ void registerApi() {
       RfCode* c = Codes::findById(o["id"].as<uint32_t>());
       if (!c) return sendErr(req, "unknown id");
       RFTransmitter::requestSend(*c);
+      if (c->name.equalsIgnoreCase("open")) WindowPosition::noteExternalCommand(true);
+      else if (c->name.equalsIgnoreCase("close")) WindowPosition::noteExternalCommand(false);
       return sendOk(req);
     }
     bool ok;
     RfCode c = codeFromJson(o, ok);
     if (!ok) return sendErr(req, "invalid signal");
     RFTransmitter::requestSend(c);
+    if (c.name.equalsIgnoreCase("open")) WindowPosition::noteExternalCommand(true);
+    else if (c.name.equalsIgnoreCase("close")) WindowPosition::noteExternalCommand(false);
     sendOk(req);
   });
   replayH->setMethod(HTTP_POST);
