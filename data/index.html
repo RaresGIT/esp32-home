@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Window Controller</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Window Controller</h1>
+  <div class="hdr-right">
+    <span id="devId" class="muted"></span>
+    <span id="wsDot" class="dot" title="Live connection"></span>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-tab="sniffer">Sniffer</button>
+  <button class="tab" data-tab="codes">Codes</button>
+  <button class="tab" data-tab="settings">Settings</button>
+  <button class="tab" data-tab="stats">Stats</button>
+</nav>
+
+<main>
+<section id="tab-sniffer" class="tabpane active">
+  <div class="row">
+    <div class="seg">
+      <button id="modeDecoded" class="seg-btn active">Decoded</button>
+      <button id="modeRaw" class="seg-btn">Raw</button>
+    </div>
+    <button id="clearEvents" class="ghost">Clear</button>
+  </div>
+  <p class="muted">Press a button on your 433&nbsp;MHz remote. Captured signals appear below —
+  test with <b>Replay</b>, then <b>Save</b> the ones that work. If nothing decodes, switch to Raw mode.</p>
+  <div id="events"></div>
+</section>
+
+<section id="tab-codes" class="tabpane">
+  <p class="muted">Codes named <b>open</b>, <b>close</b> and <b>stop</b> become the Home Assistant
+  window cover entity. Every saved code also appears in HA as a button.</p>
+  <table id="codesTbl">
+    <thead><tr><th>Name</th><th>Type</th><th>Details</th><th>Repeats</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<section id="tab-settings" class="tabpane">
+  <div class="card">
+    <h2>Wi-Fi</h2>
+    <p class="muted">Tap a network to join it.</p>
+    <ul id="scanList"><li class="muted">Scanning starts when you open this tab…</li></ul>
+    <button id="scanBtn" class="ghost">Rescan</button>
+    <details class="manual">
+      <summary class="muted">Manual configuration (hidden networks)</summary>
+      <form id="wifiForm">
+        <label>SSID <input name="ssid" required></label>
+        <label>Password <input name="pass" type="password"></label>
+        <button>Save &amp; reboot</button>
+      </form>
+    </details>
+  </div>
+  <div class="card">
+    <h2>MQTT <span class="chip">optional</span></h2>
+    <p class="muted">Only needed for Home Assistant / Google Home integration. Apple Home works
+       natively without it — leave empty to keep MQTT disabled.</p>
+    <form id="mqttForm">
+      <label>Broker host <input name="host" placeholder="192.168.1.10"></label>
+      <label>Port <input name="port" type="number" value="1883"></label>
+      <label>Username <input name="user"></label>
+      <label>Password <input name="pass" type="password"></label>
+      <button>Save &amp; reboot</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Firmware update</h2>
+    <form id="otaForm">
+      <label>Type
+        <select name="type">
+          <option value="fw">Firmware</option>
+          <option value="fs">Dashboard (filesystem)</option>
+        </select>
+      </label>
+      <input type="file" name="file" required>
+      <button>Upload</button>
+      <progress id="otaProg" max="100" value="0" hidden></progress>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Apple Home pairing</h2>
+    <p class="muted">iPhone Home app → <b>+</b> → <b>Add Accessory</b> → scan this code.
+       Manual setup code: <b id="hkCode" class="mono">—</b></p>
+    <div id="hkQr"></div>
+    <p class="muted" id="hkHint"></p>
+    <p class="muted">Onboard LED mirrors the window state: <span style="color:var(--green)">green&nbsp;=&nbsp;open</span>,
+       <span style="color:var(--red)">red&nbsp;=&nbsp;closed</span>, off&nbsp;=&nbsp;unknown.</p>
+  </div>
+  <div class="card danger">
+    <h2>Danger zone</h2>
+    <button id="factoryBtn" class="ghost">Factory reset</button>
+  </div>
+</section>
+
+<section id="tab-stats" class="tabpane">
+  <div class="grid" id="statsGrid"></div>
+</section>
+</main>
+
+<dialog id="joinDlg">
+  <form id="joinForm" method="dialog">
+    <h2>Join <span id="joinSsid"></span></h2>
+    <label id="joinPassRow">Password <input name="pass" type="password"></label>
+    <div class="row">
+      <button value="cancel" class="ghost" formnovalidate>Cancel</button>
+      <button value="join">Join &amp; reboot</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="saveDlg">
+  <form id="saveForm" method="dialog">
+    <h2>Save code</h2>
+    <p id="saveDesc" class="muted"></p>
+    <label>Name <input name="name" required placeholder="open / close / stop / …"></label>
+    <label>Repeats <input name="repeats" type="number" value="10" min="1" max="50"></label>
+    <div class="row">
+      <button value="cancel" class="ghost" formnovalidate>Cancel</button>
+      <button value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" hidden></div>
+<script src="qrcode.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
