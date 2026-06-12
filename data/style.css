@@ -116,3 +116,6 @@ progress { width: 100%; max-width: 360px; margin-top: 10px; display: block; }
 .steps li { margin: 6px 0; }
 #hkQr { margin: 10px 0; }
 #hkQr svg { background: #fff; border-radius: 10px; display: block; }
+.posbar { height: 14px; border-radius: 7px; background: var(--card, #1c2333); overflow: hidden; border: 1px solid rgba(255,255,255,.12); }
+.posfill { height: 100%; width: 0%; background: var(--green, #38c172); transition: width .4s ease; }
+#winSlider { width: 100%; }
