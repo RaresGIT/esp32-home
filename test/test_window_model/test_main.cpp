@@ -61,6 +61,7 @@ void test_opening_stops_at_intermediate_with_lead(void) {
   Step at = decideStep(47, 50, Motion::Opening, 3.0f, 1.5f, true);
   TEST_ASSERT_EQUAL(Command::SendClose, at.command);   // close-cmd stops an opening window
   TEST_ASSERT_EQUAL(Motion::Idle, at.motion);
+  TEST_ASSERT_TRUE(at.reachedTarget);
 }
 void test_closing_stops_at_intermediate_with_lead(void) {
   // target 50, lead 3 -> stop once pos <= 53
@@ -69,12 +70,22 @@ void test_closing_stops_at_intermediate_with_lead(void) {
   Step at = decideStep(53, 50, Motion::Closing, 3.0f, 1.5f, true);
   TEST_ASSERT_EQUAL(Command::SendOpen, at.command);    // open-cmd stops a closing window
   TEST_ASSERT_EQUAL(Motion::Idle, at.motion);
+  TEST_ASSERT_TRUE(at.reachedTarget);
 }
 void test_opening_retarget_below_triggers_stop(void) {
   // moving open at 70 but target dropped to 30 -> must stop now
   Step s = decideStep(70, 30, Motion::Opening, 3.0f, 1.5f, true);
   TEST_ASSERT_EQUAL(Command::SendClose, s.command);
   TEST_ASSERT_EQUAL(Motion::Idle, s.motion);
+  TEST_ASSERT_FALSE(s.reachedTarget);
+}
+
+void test_closing_retarget_above_triggers_stop(void) {
+  // closing at 20 but target jumped to 70 (above) -> stop now, not reached
+  Step s = decideStep(20, 70, Motion::Closing, 3.0f, 1.5f, true);
+  TEST_ASSERT_EQUAL(Command::SendOpen, s.command);
+  TEST_ASSERT_EQUAL(Motion::Idle, s.motion);
+  TEST_ASSERT_FALSE(s.reachedTarget);
 }
 
 int main(int, char**) {
@@ -93,5 +104,6 @@ int main(int, char**) {
   RUN_TEST(test_opening_stops_at_intermediate_with_lead);
   RUN_TEST(test_closing_stops_at_intermediate_with_lead);
   RUN_TEST(test_opening_retarget_below_triggers_stop);
+  RUN_TEST(test_closing_retarget_above_triggers_stop);
   return UNITY_END();
 }

@@ -27,8 +27,12 @@ Step decideStep(float pos, float target, Motion motion,
         if (pos >= 100.0f - 0.001f) return {Command::None, Motion::Idle, true};
         return {Command::None, Motion::Opening, false};
       }
-      // intermediate target, or a retarget now below us -> stop early by leadPct
-      if (pos >= target - leadPct) return {Command::SendClose, Motion::Idle, false};
+      if (pos >= target - leadPct) {
+        // Stop the opening. "Reached" when approaching target from just below;
+        // if target is well below us this is a retarget -> reverse next (idle).
+        bool reached = pos <= target + deadband;
+        return {Command::SendClose, Motion::Idle, reached};
+      }
       return {Command::None, Motion::Opening, false};
 
     case Motion::Closing:
@@ -36,7 +40,10 @@ Step decideStep(float pos, float target, Motion motion,
         if (pos <= 0.0f + 0.001f) return {Command::None, Motion::Idle, true};
         return {Command::None, Motion::Closing, false};
       }
-      if (pos <= target + leadPct) return {Command::SendOpen, Motion::Idle, false};
+      if (pos <= target + leadPct) {
+        bool reached = pos >= target - deadband;
+        return {Command::SendOpen, Motion::Idle, reached};
+      }
       return {Command::None, Motion::Closing, false};
 
     case Motion::Idle:

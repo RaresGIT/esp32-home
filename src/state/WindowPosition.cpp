@@ -24,6 +24,7 @@ uint32_t cfgOpenMs = 23500, cfgCloseMs = 27000, cfgStopLeadMs = 800;
 const float DEADBAND = 1.5f;
 const uint32_t SETTLE_MS = 1000;
 const uint32_t RESEND_MS = 4000;
+const float RESEND_GUARD_PCT = 8.0f;
 const uint32_t NOTIFY_MS = 500;
 uint32_t s_lastNotifyMs = 0;
 int s_lastNotifyPos = -1;
@@ -135,16 +136,21 @@ void WindowPosition::tick() {
       notifySinks(true);
     }
     if (st.reachedTarget) {
+      s_pos = (float)s_target;  // lead compensation lands the window at target
       s_target = -1;
       Storage::setWindowLastPos(roundPct(s_pos));
     }
 
     // Re-assert the same direction mid-travel so the motor reliably latches,
-    // but not in the final stretch (avoid colliding with the stop).
+    // but not within RESEND_GUARD_PCT of the stop point (a late resend could
+    // delay the stop burst in the TX queue and overshoot).
     if (st.command == Command::None && s_motion != Motion::Idle &&
-        (now - s_lastSendMs) > RESEND_MS &&
-        (now - s_startMs) < (dur > 3000 ? dur - 3000 : 0)) {
-      sendDir(s_motion == Motion::Opening);
+        (now - s_lastSendMs) > RESEND_MS) {
+      float stopPos = s_motion == Motion::Opening
+                          ? (s_target >= 100 ? 100.0f : (float)s_target - leadPct)
+                          : (s_target <= 0 ? 0.0f : (float)s_target + leadPct);
+      float remaining = s_motion == Motion::Opening ? (stopPos - s_pos) : (s_pos - stopPos);
+      if (remaining > RESEND_GUARD_PCT) sendDir(s_motion == Motion::Opening);
     }
   }
 
