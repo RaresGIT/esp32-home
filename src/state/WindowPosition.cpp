@@ -19,6 +19,8 @@ uint32_t s_lastSendMs = 0;  // last RF send (for re-assertion throttle)
 uint32_t s_lastStopMs = 0;  // last stop (settle guard before reversing direction)
 Motion s_motion = Motion::Idle;
 int s_target = -1;          // -1 = none
+volatile bool s_stopReq = false;
+volatile int s_extReq = -1;  // -1 none, 0 external-close, 1 external-open
 
 uint32_t cfgOpenMs = 23500, cfgCloseMs = 27000, cfgStopLeadMs = 800;
 
@@ -71,6 +73,27 @@ void sendDir(bool open) {
 void recompute() {
   s_pos = WindowModel::estimatePct(s_startPct, millis() - s_startMs, s_motion, cfgOpenMs, cfgCloseMs);
 }
+
+void doStop() {
+  recompute();
+  if (s_motion == Motion::Opening) sendDir(false);
+  else if (s_motion == Motion::Closing) sendDir(true);
+  s_motion = Motion::Idle;
+  s_target = -1;
+  s_lastStopMs = millis();
+  Storage::setWindowLastPos(roundPct(s_pos));
+  notifySinks(true);
+}
+
+void doExternal(bool opening) {
+  recompute();
+  s_motion = opening ? Motion::Opening : Motion::Closing;
+  s_startMs = millis();
+  s_startPct = s_pos;
+  s_target = opening ? 100 : 0;
+  s_lastSendMs = millis();  // RF already sent by caller; don't double-send
+  notifySinks(true);
+}
 }  // namespace
 
 void WindowPosition::begin() {
@@ -90,28 +113,15 @@ void WindowPosition::goTo(uint8_t pct) {
 void WindowPosition::openFull() { goTo(100); }
 void WindowPosition::closeFull() { goTo(0); }
 
-void WindowPosition::stop() {
-  recompute();
-  if (s_motion == Motion::Opening) sendDir(false);
-  else if (s_motion == Motion::Closing) sendDir(true);
-  s_motion = Motion::Idle;
-  s_target = -1;
-  s_lastStopMs = millis();
-  Storage::setWindowLastPos(roundPct(s_pos));
-  notifySinks(true);
-}
+void WindowPosition::stop() { s_stopReq = true; }  // handled on the loop task in tick()
 
-void WindowPosition::noteExternalCommand(bool opening) {
-  recompute();
-  s_motion = opening ? Motion::Opening : Motion::Closing;
-  s_startMs = millis();
-  s_startPct = s_pos;
-  s_target = opening ? 100 : 0;
-  s_lastSendMs = millis();  // RF already sent by caller; don't double-send now
-  notifySinks(true);
+void WindowPosition::noteExternalCommand(bool opening) {  // handled on the loop task in tick()
+  s_extReq = opening ? 1 : 0;
 }
 
 void WindowPosition::tick() {
+  if (s_stopReq) { s_stopReq = false; doStop(); }
+  if (s_extReq >= 0) { bool op = s_extReq == 1; s_extReq = -1; doExternal(op); }
   uint32_t now = millis();
   recompute();
 
